@@ -240,7 +240,7 @@ async function likePost(postDocId) {
             body: JSON.stringify({
                 data: {
                     post: postDocId, // نربط اللايك بالمنشور (documentId)
-                    user: userId      // نربط اللايك بالمستخدم (id)
+                    user: userId      // نربط اللايك بالمستخدم (id
                 }
             }),
         });
