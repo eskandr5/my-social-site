@@ -170,12 +170,19 @@ async function showProfile() {
 async function fetchPosts() {
     try {
         // نستخدم populate[*] لجلب كل العلاقات، أو نحددها بدقة لسرعة أفضل
-        const response = await fetch(`${API_URL}/api/posts?populate[image]=*&populate[user]=*&populate[comments][populate][user]=*&populate[likes][count]=true&sort=createdAt:desc`);
-
+        const response = await fetch(`${API_URL}/api/posts?populate=*&sort=createdAt:desc`);
         const result = await response.json();
+
+        // تأكد أن البيانات موجودة قبل البدء
+        if (!result.data) {
+            console.error("لم يتم العثور على بيانات:", result);
+            return;
+        }
+
         const posts = result.data;
         const feedElement = document.getElementById('feed');
         feedElement.innerHTML = '';
+        // هنا يبدأ الـ forEach...
 
         posts.forEach(post => {
             // في Strapi 5 البيانات تكون مباشرة داخل العنصر بعد result.data
