@@ -226,12 +226,12 @@ async function fetchPosts() {
 // ===========================================================================================================================
 async function likePost(postDocId) {
     const token = localStorage.getItem('token');
-    const userId = localStorage.getItem('userId'); // تأكد أنك تخزن الـ ID عند الدخول
+    const userId = localStorage.getItem('userId'); // تأكدنا أننا حفظناه عند تسجيل الدخول
 
     if (!token) return alert("يجب تسجيل الدخول للإعجاب بالمنشور");
 
     try {
-        const response = await fetch(`${API_URL}/api/likes`, {
+        const response = await fetch(`${API_URL}/api/likes`, { // أرسل إلى جدول اللايكات وليس المنشورات
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -239,18 +239,19 @@ async function likePost(postDocId) {
             },
             body: JSON.stringify({
                 data: {
-                    post: postDocId, // نرسل الـ documentId الخاص بالمنشور
-                    user: userId      // نرسل الـ id الخاص بالمستخدم
+                    post: postDocId, // نربط اللايك بالمنشور (documentId)
+                    user: userId      // نربط اللايك بالمستخدم (id)
                 }
             }),
         });
 
         if (response.ok) {
-            console.log("تم الإعجاب بنجاح");
-            fetchPosts(); // لتحديث العداد الذي سيأتي عبر الـ Populate
+            console.log("تم الإعجاب!");
+            fetchPosts(); // تحديث الصفحة لرؤية العداد الجديد
         } else {
             const errorData = await response.json();
             console.error("خطأ من السيرفر:", errorData);
+            alert("حدث خطأ أثناء الإعجاب. تأكد من إعدادات الصلاحيات في Strapi");
         }
     } catch (error) {
         console.error("Like Error:", error);
