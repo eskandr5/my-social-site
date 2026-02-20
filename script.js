@@ -237,39 +237,55 @@ async function likePost(postDocId) {
     const token = localStorage.getItem('token');
     const userId = localStorage.getItem('userId');
 
-    if (!token) return alert("يجب تسجيل الدخول للإعجاب");
+    if (!token) return alert("يجب تسجيل الدخول للإعجاب بالمنشور");
 
     try {
-        // 1. البحث هل يوجد لايك سابق من هذا المستخدم لهذا المنشور
-        const checkRes = await fetch(`${API_URL}/api/likes?filters[user][id][$eq]=${userId}&filters[post][documentId][$eq]=${postDocId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const checkData = await checkRes.json();
+        // الخطوة 1: البحث عن لايك سابق لهذا المستخدم على هذا المنشور تحديداً
+        const checkResponse = await fetch(
+            `${API_URL}/api/likes?filters[user][id][$eq]=${userId}&filters[post][documentId][$eq]=${postDocId}`,
+            {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            }
+        );
 
+        const checkData = await checkResponse.json();
+
+        // الخطوة 2: إذا كان هناك لايك موجود فعلاً (Array length > 0)
         if (checkData.data && checkData.data.length > 0) {
-            // 2. إذا وجد لايك، نقوم بحذفه (Unlike)
-            const likeId = checkData.data[0].documentId;
-            await fetch(`${API_URL}/api/likes/${likeId}`, {
+            const likeDocId = checkData.data[0].documentId; // الحصول على ID اللايك لحذفه
+
+            await fetch(`${API_URL}/api/likes/${likeDocId}`, {
                 method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
             });
-            console.log("تم إزالة الإعجاب");
+            console.log("تم إزالة الإعجاب (Unlike)");
+
         } else {
-            // 3. إذا لم يجد لايك، نقوم بإضافته (Like)
-            await fetch(`${API_URL}/api/likes`, {
+            // الخطوة 3: إذا لم يكن هناك لايك، نقوم بإنشائه
+            const response = await fetch(`${API_URL}/api/likes`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                    data: { post: postDocId, user: userId }
-                })
+                    data: {
+                        post: postDocId,
+                        user: userId
+                    }
+                }),
             });
-            console.log("تم الإعجاب");
+
+            if (!response.ok) throw new Error("فشل إضافة الإعجاب");
+            console.log("تم إضافة الإعجاب (Like)");
         }
 
-        // تحديث الواجهة لرؤية الرقم الجديد
+        // تحديث المنشورات فوراً لتحديث عداد اللايكات في الواجهة
         fetchPosts();
 
     } catch (error) {
