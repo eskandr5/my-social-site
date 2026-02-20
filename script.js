@@ -77,7 +77,6 @@ async function checkUserSession() {
 }
 // ===========================================================================================================================
 // ===========================================================================================================================
-
 async function loginUser() {
     const identifier = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
@@ -95,23 +94,37 @@ async function loginUser() {
         if (data.jwt) {
             localStorage.setItem('token', data.jwt);
             localStorage.setItem('user', JSON.stringify(data.user));
+
+            // --- السطر المضاف هنا ---
+            // نحفظ الـ ID بشكل مستقل ليسهل استدعاؤه في دوال Like و Comment
+            localStorage.setItem('userId', data.user.id);
+            // -----------------------
+
             msgElement.style.color = "blue";
-            msgElement.innerText = "أهلاً بك!";
+            msgElement.innerText = `أهلاً بك يا ${data.user.username}!`;
+
+            // تنظيف الحقول بعد النجاح
+            document.getElementById('login-email').value = '';
+            document.getElementById('login-password').value = '';
+
             checkLogin();
+            fetchPosts(); // تحديث المنشورات فوراً لرؤية خيارات التفاعل
         } else {
             msgElement.style.color = "red";
-            msgElement.innerText = "خطأ: " + data.error.message;
+            msgElement.innerText = "خطأ: " + (data.error?.message || "بيانات الدخول غير صحيحة");
         }
     } catch (error) {
         msgElement.innerText = "فشل الاتصال بالسيرفر.";
+        console.error("Login Error:", error);
     }
 }
 // ===========================================================================================================================
 // ===========================================================================================================================
 
-function logoutUser() {
-    localStorage.clear();
-    location.reload();
+function logout() {
+    localStorage.clear(); // سيمسح كل شيء مرة واحدة
+    checkLogin();
+    fetchPosts();
 }
 // ===========================================================================================================================
 // ===========================================================================================================================
@@ -153,18 +166,26 @@ async function showProfile() {
 }
 // ===========================================================================================================================
 // ===========================================================================================================================
+
 async function fetchPosts() {
     try {
-        const response = await fetch(`${API_URL}/api/posts?populate=*&sort=createdAt:desc`);
+        // نستخدم populate[*] لجلب كل العلاقات، أو نحددها بدقة لسرعة أفضل
+        const response = await fetch(`${API_URL}/api/posts?populate[image]=*&populate[user]=*&populate[comments][populate][user]=*&populate[likes][count]=true&sort=createdAt:desc`);
+
         const result = await response.json();
         const posts = result.data;
         const feedElement = document.getElementById('feed');
         feedElement.innerHTML = '';
 
         posts.forEach(post => {
+            // في Strapi 5 البيانات تكون مباشرة داخل العنصر بعد result.data
             const authorName = post.user?.username || "مستخدم مجهول";
-            const likes = post.likesCount || 0;
+
+            // جلب عدد اللايكات من الـ count الذي طلبناه في الرابط
+            const likesCount = post.likes?.count || 0;
+
             const imageUrl = post.image ? getFullUrl(post.image.url) : '';
+            const postDocId = post.documentId; // المعرف الأساسي في Strapi 5
 
             // بناء التعليقات
             let commentsHTML = '<div class="comments-section">';
@@ -173,17 +194,27 @@ async function fetchPosts() {
                 const cUserName = comm.user?.username || "مستخدم";
                 commentsHTML += `<p><strong>${cUserName}:</strong> ${comm.content}</p>`;
             });
+            commentsHTML += '</div>';
 
             feedElement.innerHTML += `
                 <div class="post-card">
-                    <span class="author">👤 ${authorName}</span>
-                    <p>${post.content}</p>
-                    ${imageUrl ? `<img src="${imageUrl}" style="width:100%">` : ''}
-                    <button onclick="likePost('${post.documentId || post.id}', ${likes})">❤️ (${likes})</button>
+                    <div class="post-header">
+                        <span class="author">👤 ${authorName}</span>
+                    </div>
+                    <p class="post-content">${post.content}</p>
+                    ${imageUrl ? `<img src="${imageUrl}" class="post-img">` : ''}
+                    
+                    <div class="post-actions">
+                        <button class="like-btn" onclick="likePost('${postDocId}')">
+                            ❤️ <span id="like-count-${postDocId}">${likesCount}</span>
+                        </button>
+                    </div>
+
                     ${commentsHTML}
+
                     <div class="add-comment">
-                        <input type="text" id="comm-input-${post.documentId || post.id}" placeholder="تعليق...">
-                        <button onclick="addComment('${post.documentId || post.id}')">إرسال</button>
+                        <input type="text" id="comm-input-${postDocId}" placeholder="اكتب تعليقاً...">
+                        <button onclick="addComment('${postDocId}')">إرسال</button>
                     </div>
                 </div>`;
         });
@@ -191,29 +222,49 @@ async function fetchPosts() {
         console.error("Fetch Error:", error);
     }
 }
-
-async function likePost(postId, currentLikes) {
+// ===========================================================================================================================
+// ===========================================================================================================================
+async function likePost(postDocId) {
     const token = localStorage.getItem('token');
-    if (!token) return alert("سجل دخولك أولاً");
+    const userId = localStorage.getItem('userId'); // تأكد أنك تخزن الـ ID عند الدخول
 
-    await fetch(`${API_URL}/api/posts/${postId}`, {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ data: { likesCount: currentLikes + 1 } })
-    });
-    fetchPosts();
+    if (!token) return alert("يجب تسجيل الدخول للإعجاب بالمنشور");
+
+    try {
+        const response = await fetch(`${API_URL}/api/likes`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                data: {
+                    post: postDocId, // نرسل الـ documentId الخاص بالمنشور
+                    user: userId      // نرسل الـ id الخاص بالمستخدم
+                }
+            }),
+        });
+
+        if (response.ok) {
+            console.log("تم الإعجاب بنجاح");
+            fetchPosts(); // لتحديث العداد الذي سيأتي عبر الـ Populate
+        } else {
+            const errorData = await response.json();
+            console.error("خطأ من السيرفر:", errorData);
+        }
+    } catch (error) {
+        console.error("Like Error:", error);
+    }
 }
 // ===========================================================================================================================
 // ===========================================================================================================================
-async function addComment(postId) {
-    const content = document.getElementById(`comm-input-${postId}`).value;
+async function addComment(postDocId) {
     const token = localStorage.getItem('token');
-    const user = JSON.parse(localStorage.getItem('user'));
+    const inputElement = document.getElementById(`comm-input-${postDocId}`);
+    const content = inputElement.value.trim();
 
-    if (!content) return alert("اكتب تعليقاً أولاً");
+    if (!token) return alert("سجل دخولك أولاً للتعليق");
+    if (!content) return alert("لا يمكنك إرسال تعليق فارغ");
 
     try {
         const response = await fetch(`${API_URL}/api/comments`, {
@@ -225,24 +276,22 @@ async function addComment(postId) {
             body: JSON.stringify({
                 data: {
                     content: content,
-                    // في Strapi 5 يفضل استخدام documentId للربط
-                    post: postId,
-                    user: user.id, // أو user.documentId
-                    publishedAt: new Date().toISOString()
+                    post: postDocId, // نربط التعليق بالمنشور عبر الـ documentId
+                    // ملاحظة: Strapi يربط المستخدم تلقائياً إذا كان الـ Token صحيحاً 
+                    // ولكن لضمان الدقة يفضل إرسال الـ userId إذا كنت تخزنه
+                    user: localStorage.getItem('userId')
                 }
-            }),
+            })
         });
 
         if (response.ok) {
-            document.getElementById(`comm-input-${postId}`).value = '';
-            // تحديث المنشورات لإظهار التعليق الجديد
-            setTimeout(fetchPosts, 500);
+            inputElement.value = ''; // مسح الخانة بعد الإرسال
+            fetchPosts(); // تحديث القائمة لإظهار التعليق الجديد
         } else {
-            const err = await response.json();
-            alert("خطأ: " + err.error.message);
+            alert("فشل إرسال التعليق، تأكد من الصلاحيات");
         }
     } catch (error) {
-        console.error("Error adding comment:", error);
+        console.error("Comment Error:", error);
     }
 }
 // ===========================================================================================================================
@@ -341,33 +390,7 @@ async function updateProfile() {
         console.error("Update Profile Error:", error);
     }
 }
-// ===========================================================================================================================
-// ===========================================================================================================================
-async function likePost(postId, currentLikes) {
-    const token = localStorage.getItem('token');
-    if (!token) return alert("يجب تسجيل الدخول للإعجاب بالمنشور");
 
-    try {
-        const response = await fetch(`${API_URL}/api/posts/${postId}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-                data: {
-                    likesCount: Number(currentLikes) + 1
-                }
-            }),
-        });
-
-        if (response.ok) {
-            fetchPosts(); // تحديث فوري للعداد في الواجهة
-        }
-    } catch (error) {
-        console.error("Like Error:", error);
-    }
-}
 // ===========================================================================================================================
 // ===========================================================================================================================
 
