@@ -166,68 +166,80 @@ async function showProfile() {
 }
 // ===========================================================================================================================
 // ===========================================================================================================================
-
 async function fetchPosts() {
+
     try {
-        // نستخدم populate[*] لجلب كل العلاقات، أو نحددها بدقة لسرعة أفضل
+
         const response = await fetch(`${API_URL}/api/posts?populate=*&sort=createdAt:desc`);
+
         const result = await response.json();
 
-        // تأكد أن البيانات موجودة قبل البدء
-        if (!result.data) {
-            console.error("لم يتم العثور على بيانات:", result);
-            return;
-        }
-
         const posts = result.data;
+
         const feedElement = document.getElementById('feed');
+
         feedElement.innerHTML = '';
-        // هنا يبدأ الـ forEach...
+
+
 
         posts.forEach(post => {
-            // في Strapi 5 البيانات تكون مباشرة داخل العنصر بعد result.data
+
             const authorName = post.user?.username || "مستخدم مجهول";
 
-            // جلب عدد اللايكات من الـ count الذي طلبناه في الرابط
-            const likesCount = post.likes?.count || 0;
+            const likes = post.likesCount || 0;
 
             const imageUrl = post.image ? getFullUrl(post.image.url) : '';
-            const postDocId = post.documentId; // المعرف الأساسي في Strapi 5
+
+
 
             // بناء التعليقات
+
             let commentsHTML = '<div class="comments-section">';
+
             const commentsData = post.comments || [];
+
             commentsData.forEach(comm => {
+
                 const cUserName = comm.user?.username || "مستخدم";
+
                 commentsHTML += `<p><strong>${cUserName}:</strong> ${comm.content}</p>`;
+
             });
-            commentsHTML += '</div>';
+
+
 
             feedElement.innerHTML += `
+
                 <div class="post-card">
-                    <div class="post-header">
-                        <span class="author">👤 ${authorName}</span>
-                    </div>
-                    <p class="post-content">${post.content}</p>
-                    ${imageUrl ? `<img src="${imageUrl}" class="post-img">` : ''}
-                    
-                    <div class="post-actions">
-                        <button class="like-btn" onclick="likePost('${postDocId}')">
-                            ❤️ <span id="like-count-${postDocId}">${likesCount}</span>
-                        </button>
-                    </div>
+
+                    <span class="author">👤 ${authorName}</span>
+
+                    <p>${post.content}</p>
+
+                    ${imageUrl ? `<img src="${imageUrl}" style="width:100%">` : ''}
+
+                    <button onclick="likePost('${post.documentId || post.id}', ${likes})">❤️ (${likes})</button>
 
                     ${commentsHTML}
 
                     <div class="add-comment">
-                        <input type="text" id="comm-input-${postDocId}" placeholder="اكتب تعليقاً...">
-                        <button onclick="addComment('${postDocId}')">إرسال</button>
+
+                        <input type="text" id="comm-input-${post.documentId || post.id}" placeholder="تعليق...">
+
+                        <button onclick="addComment('${post.documentId || post.id}')">إرسال</button>
+
                     </div>
+
                 </div>`;
+
         });
+
     } catch (error) {
+
         console.error("Fetch Error:", error);
+
     }
+
 }
 // ===========================================================================================================================
 // ===========================================================================================================================
