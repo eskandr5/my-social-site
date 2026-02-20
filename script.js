@@ -170,13 +170,13 @@ async function fetchPosts() {
     try {
         // 1. استخدام الرابط الأبسط لتجنب الـ 400 حالياً
         const response = await fetch(`${API_URL}/api/posts?populate=*&sort=createdAt:desc`);
-        
+
         if (!response.ok) {
             throw new Error(`Server error: ${response.status}`);
         }
 
         const result = await response.json();
-        
+
         // 2. فحص الأمان: إذا لم تكن البيانات موجودة، توقف هنا ولا تكمل للـ forEach
         if (!result || !result.data) {
             console.error("No data found in response");
@@ -189,12 +189,12 @@ async function fetchPosts() {
 
         posts.forEach(post => {
             const authorName = post.user?.username || "مستخدم مجهول";
-            
+
             // 3. تأكد من طريقة جلب اللايكات (إذا لم تكن موجودة اجعلها 0)
-            const likesCount = (post.likes && typeof post.likes === 'object' && post.likes.count) 
-                                ? post.likes.count 
-                                : (Array.isArray(post.likes) ? post.likes.length : 0);
-            
+            const likesCount = (post.likes && typeof post.likes === 'object' && post.likes.count)
+                ? post.likes.count
+                : (Array.isArray(post.likes) ? post.likes.length : 0);
+
             const imageUrl = post.image ? getFullUrl(post.image.url) : '';
             const postDocId = post.documentId;
 
@@ -235,33 +235,43 @@ async function fetchPosts() {
 // ===========================================================================================================================
 async function likePost(postDocId) {
     const token = localStorage.getItem('token');
-    const userId = localStorage.getItem('userId'); // تأكدنا أننا حفظناه عند تسجيل الدخول
+    const userId = localStorage.getItem('userId');
 
-    if (!token) return alert("يجب تسجيل الدخول للإعجاب بالمنشور");
+    if (!token) return alert("يجب تسجيل الدخول للإعجاب");
 
     try {
-        const response = await fetch(`${API_URL}/api/likes`, { // أرسل إلى جدول اللايكات وليس المنشورات
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-                data: {
-                    post: postDocId, // نربط اللايك بالمنشور (documentId)
-                    user: userId      // نربط اللايك بالمستخدم (id
-                }
-            }),
+        // 1. البحث هل يوجد لايك سابق من هذا المستخدم لهذا المنشور
+        const checkRes = await fetch(`${API_URL}/api/likes?filters[user][id][$eq]=${userId}&filters[post][documentId][$eq]=${postDocId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
         });
+        const checkData = await checkRes.json();
 
-        if (response.ok) {
-            console.log("تم الإعجاب!");
-            fetchPosts(); // تحديث الصفحة لرؤية العداد الجديد
+        if (checkData.data && checkData.data.length > 0) {
+            // 2. إذا وجد لايك، نقوم بحذفه (Unlike)
+            const likeId = checkData.data[0].documentId;
+            await fetch(`${API_URL}/api/likes/${likeId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            console.log("تم إزالة الإعجاب");
         } else {
-            const errorData = await response.json();
-            console.error("خطأ من السيرفر:", errorData);
-            alert("حدث خطأ أثناء الإعجاب. تأكد من إعدادات الصلاحيات في Strapi");
+            // 3. إذا لم يجد لايك، نقوم بإضافته (Like)
+            await fetch(`${API_URL}/api/likes`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    data: { post: postDocId, user: userId }
+                })
+            });
+            console.log("تم الإعجاب");
         }
+
+        // تحديث الواجهة لرؤية الرقم الجديد
+        fetchPosts();
+
     } catch (error) {
         console.error("Like Error:", error);
     }
