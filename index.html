@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <title>موقعي للتواصل الاجتماعي</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .post-card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 500px;
+            margin-bottom: 20px;
+            padding: 15px;
+        }
+
+        .author {
+            font-weight: bold;
+            color: #1c1e21;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .content {
+            margin-bottom: 15px;
+            color: #4b4f56;
+            line-height: 1.5;
+        }
+
+        .post-image {
+            width: 100%;
+            border-radius: 8px;
+            display: block;
+        }
+
+        h1 {
+            color: #1877f2;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="post-card">
+        <h3>تسجيل حساب جديد</h3>
+        <input type="text" id="reg-username" placeholder="اسم المستخدم"><br><br>
+        <input type="email" id="reg-email" placeholder="الإيميل"><br><br>
+        <input type="password" id="reg-password" placeholder="كلمة المرور"><br><br>
+        <button onclick="registerUser()">إنشاء حساب</button>
+        <p id="reg-msg"></p>
+    </div>
+    <div class="post-card">
+        <h3>تسجيل الدخول</h3>
+        <input type="text" id="login-email" placeholder="الإيميل أو اسم المستخدم"><br><br>
+        <input type="password" id="login-password" placeholder="كلمة المرور"><br><br>
+        <button onclick="loginUser()">دخول</button>
+        <p id="login-msg"></p>
+    </div>
+    <div class="post-card" id="create-post-area" style="display:none;">
+        <h3>بماذا تفكر يا <span id="user-display-name"></span>؟</h3>
+        <textarea id="post-content" placeholder="اكتب شيئاً..." style="width:100%; height:80px;"></textarea><br><br>
+        <button onclick="createPost()">نشر المنشور</button>
+        <p id="post-msg"></p>
+    </div>
+    <div id="profile-area" class="post-card"
+        style="display:none; background-color: #e7f3ff; border: 1px solid #1877f2;">
+        <h2 id="prof-username">اسم المستخدم</h2>
+        <p id="prof-bio">السيرة الذاتية هنا...</p>
+        <div style="display: flex; gap: 20px; font-weight: bold; margin-bottom: 10px;">
+            <span>المتابعون: <span id="count-followers">0</span></span>
+            <span>أتابع: <span id="count-following">0</span></span>
+        </div>
+        <button onclick="hideProfile()"
+            style="background:none; border:none; color:blue; cursor:pointer; text-decoration:underline;">إغلاق
+            البروفايل</button>
+    </div>
+    <div id="profile-edit-form" style="margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 10px;">
+        <h4>تعديل البيانات</h4>
+        <textarea id="edit-bio" placeholder="اكتب سيرتك الذاتية الجديدة..."
+            style="width:100%; height:60px;"></textarea><br><br>
+        <label>تغيير صورة البروفايل:</label>
+        <input type="file" id="edit-avatar" accept="image/*"><br><br>
+        <button onclick="updateProfile()"
+            style="background-color: #4CAF50; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+            حفظ التعديلات
+        </button>
+    </div>
+    <button onclick="logoutUser()"
+        style="background-color: #f44336; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">تسجيل
+        الخروج</button>
+    <h1>آخر المنشورات</h1>
+    <div id="feed">جاري تحميل المنشورات...</div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
