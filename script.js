@@ -167,79 +167,69 @@ async function showProfile() {
 // ===========================================================================================================================
 // ===========================================================================================================================
 async function fetchPosts() {
-
     try {
-
+        // 1. استخدام الرابط الأبسط لتجنب الـ 400 حالياً
         const response = await fetch(`${API_URL}/api/posts?populate=*&sort=createdAt:desc`);
+        
+        if (!response.ok) {
+            throw new Error(`Server error: ${response.status}`);
+        }
 
         const result = await response.json();
+        
+        // 2. فحص الأمان: إذا لم تكن البيانات موجودة، توقف هنا ولا تكمل للـ forEach
+        if (!result || !result.data) {
+            console.error("No data found in response");
+            return;
+        }
 
         const posts = result.data;
-
         const feedElement = document.getElementById('feed');
-
         feedElement.innerHTML = '';
 
-
-
         posts.forEach(post => {
-
             const authorName = post.user?.username || "مستخدم مجهول";
-
-            const likes = post.likesCount || 0;
-
+            
+            // 3. تأكد من طريقة جلب اللايكات (إذا لم تكن موجودة اجعلها 0)
+            const likesCount = (post.likes && typeof post.likes === 'object' && post.likes.count) 
+                                ? post.likes.count 
+                                : (Array.isArray(post.likes) ? post.likes.length : 0);
+            
             const imageUrl = post.image ? getFullUrl(post.image.url) : '';
-
-
-
-            // بناء التعليقات
+            const postDocId = post.documentId;
 
             let commentsHTML = '<div class="comments-section">';
-
             const commentsData = post.comments || [];
-
             commentsData.forEach(comm => {
-
                 const cUserName = comm.user?.username || "مستخدم";
-
                 commentsHTML += `<p><strong>${cUserName}:</strong> ${comm.content}</p>`;
-
             });
-
-
-
+            commentsHTML += '</div>';
             feedElement.innerHTML += `
-
                 <div class="post-card">
-
-                    <span class="author">👤 ${authorName}</span>
-
-                    <p>${post.content}</p>
-
-                    ${imageUrl ? `<img src="${imageUrl}" style="width:100%">` : ''}
-
-                    <button onclick="likePost('${post.documentId || post.id}', ${likes})">❤️ (${likes})</button>
-
-                    ${commentsHTML}
-
-                    <div class="add-comment">
-
-                        <input type="text" id="comm-input-${post.documentId || post.id}" placeholder="تعليق...">
-
-                        <button onclick="addComment('${post.documentId || post.id}')">إرسال</button>
-
+                    <div class="post-header">
+                        <span class="author">👤 ${authorName}</span>
                     </div>
-
+                    <p class="post-content">${post.content}</p>
+                    ${imageUrl ? `<img src="${imageUrl}" class="post-img">` : ''}
+                    
+                    <div class="post-actions">
+                        <button class="like-btn" onclick="likePost('${postDocId}')">
+                            ❤️ <span id="like-count-${postDocId}">${likesCount}</span>
+                        </button>
+                    </div>
+                    ${commentsHTML}
+                    <div class="add-comment">
+                        <input type="text" id="comm-input-${postDocId}" placeholder="اكتب تعليقاً...">
+                        <button onclick="addComment('${postDocId}')">إرسال</button>
+                    </div>
                 </div>`;
-
         });
-
     } catch (error) {
-
         console.error("Fetch Error:", error);
-
+        const feedElement = document.getElementById('feed');
+        if (feedElement) feedElement.innerHTML = '<p style="color:red; text-align:center;">حدث خطأ في جلب البيانات من السيرفر</p>';
     }
-
 }
 // ===========================================================================================================================
 // ===========================================================================================================================
